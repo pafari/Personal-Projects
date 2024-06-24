@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 from sklearn.ensemble import RandomForestClassifier
 import seaborn as sns
 from sklearn.metrics import accuracy_score, classification_report
@@ -15,7 +17,7 @@ data = pd.read_excel('Liked Songs Playlist Contenders Manual Data.xlsx', header=
 
 # Convert categorical columns to binary values
 data['Added (Gray)'] = data['Added (Gray)'].apply(lambda x: 1 if x == 'Yes' else 0)
-data['Saved for Later (Yellow)'] = data['Saved for Later(Yellow)'].apply(lambda x: 1 if x == 'Yes' else 0)
+data['Saved for Later(Yellow)'] = data['Saved for Later(Yellow)'].apply(lambda x: 1 if x == 'Yes' else 0)
 data['Added to Alternate (Green)'] = data['Added to Alternate (Green)'].apply(lambda x: 1 if x == 'Yes' else 0)
 data['Rejected'] = data['Rejected'].apply(lambda x: 1 if x == 'Yes' else 0)
 data['In Review (has not been added)'] = data['In Review (has not been added)'].apply(lambda x: 1 if x == 'Yes' else 0)
@@ -35,6 +37,8 @@ in_review_count = data['In Review (has not been added)'].value_counts()
 # Create a bar plot to visualize the distribution
 plt.figure(figsize=(12, 6))
 
+plt.figure(figsize=(12, 6))
+
 plt.subplot(2, 2, 1)
 if not added_count.empty:
     added_count.plot(kind='bar', color='gray', title='Added (Gray)')
@@ -43,7 +47,7 @@ if not added_count.empty:
 
 plt.subplot(2, 2, 2)
 if not saved_for_later_count.empty:
-    saved_for_later_count.plot(kind='bar', color='yellow', title='Saved for Later (Yellow)')
+    saved_for_later_count.plot(kind='bar', color='yellow', title='Saved for Later(Yellow)')
     plt.xlabel('Status')
     plt.ylabel('Count')
 
@@ -79,10 +83,10 @@ plt.show()
 
 # Number of Songs in Each Category
 category_count = {
-    'Added': data['Added (Gray)'].value_counts().get('Yes', 0),
-    'Saved for Later': data['Saved for Later(Yellow)'].notnull().sum(),
-    'Rejected': data['Rejected'].notnull().sum(),
-    'In Review': data['In Review (has not been added)'].notnull().sum()
+    'Added': data['Added (Gray)'].value_counts().get(1, 0),
+    'Saved for Later': data['Saved for Later(Yellow)'].sum(),
+    'Rejected': data['Rejected'].sum(),
+    'In Review': data['In Review (has not been added)'].sum()
 }
 plt.figure(figsize=(10, 6))
 plt.bar(category_count.keys(), category_count.values(), color=['gray', 'yellow', 'red', 'blue'])
@@ -105,7 +109,8 @@ data_encoded = pd.get_dummies(data, columns=['Artist', 'Song'])
 data_encoded['Artist_Count'] = data['Artist_Count']
 
 # Define the target variable (whether the song is added or not)
-data_encoded['Added'] = data_encoded['Added (Gray)'].apply(lambda x: 1 if x == 'Yes' else 0)
+data_encoded['Added'] = data_encoded['Added (Gray)'].apply(lambda x: 1 if x == 1 else 0)
+
 
 # Drop the original categorical columns
 data_encoded = data_encoded.drop(columns=['Added (Gray)', 'Saved for Later(Yellow)', 'Date Added to Playlist',
@@ -156,3 +161,36 @@ report = classification_report(y_test, predictions)
 
 print(f'Test Set Accuracy: {accuracy:.2f}')
 print(report)
+
+def recommend_songs(model, data, n_recommendations=5):
+    # Filter songs that are 'In Review'
+    in_review_songs = data[data['In Review (has not been added)'] == 1]
+    if in_review_songs.empty:
+        print("No songs are currently in review.")
+        return []
+
+    # Encode the 'In Review' songs
+    in_review_encoded = pd.get_dummies(in_review_songs, columns=['Artist', 'Song'])
+    in_review_encoded = in_review_encoded.reindex(columns=X.columns, fill_value=0)  # Align with the training data columns
+    in_review_encoded['Artist_Count'] = in_review_encoded['Artist_Count']
+
+    # Predict probabilities for 'In Review' songs
+    probabilities = model.predict_proba(in_review_encoded)[:, 1]
+
+    # Select top N recommendations
+    recommendations = in_review_songs.iloc[probabilities.argsort()[-n_recommendations:]]
+    return recommendations[['Artist', 'Song', 'Artist_Count']]
+
+# Get top 5 song recommendations
+recommended_songs = recommend_songs(best_model, data, n_recommendations=5)
+print("Recommended Songs:")
+print(recommended_songs)
+
+# Visualize the recommended songs
+plt.figure(figsize=(10, 6))
+sns.barplot(data=recommended_songs, x='Artist_Count', y='Song', hue='Artist', dodge=False)
+plt.title('Top Song Recommendations')
+plt.xlabel('Artist Count')
+plt.ylabel('Song')
+plt.savefig('recommended_songs.png')
+
