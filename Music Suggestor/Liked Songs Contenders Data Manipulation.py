@@ -15,6 +15,10 @@ it is really rewarding to see that will be definitely made significantly easier 
 # Loading the original data that I manually made
 data = pd.read_excel('Liked Songs Playlist Contenders Manual Data.xlsx', header=1)
 
+# Function to casefold strings for case-insensitive comparison
+def casefold_series(series):
+    return series.apply(lambda x: x.casefold() if isinstance(x, str) else x)
+
 # Convert categorical columns to binary values
 data['Added (Gray)'] = data['Added (Gray)'].apply(lambda x: 1 if x == 'Yes' else 0)
 data['Saved for Later(Yellow)'] = data['Saved for Later(Yellow)'].apply(lambda x: 1 if x == 'Yes' else 0)
@@ -67,7 +71,7 @@ plt.tight_layout()
 plt.show()
 
 # Add a feature for the count of songs by each artist
-artist_counts = data['Artist'].value_counts()
+artist_counts = casefold_series(data['Artist']).value_counts()
 data['Artist_Count'] = data['Artist'].map(artist_counts)
 
 # Count songs by artist
@@ -133,10 +137,10 @@ model = RandomForestClassifier()
 
 #Defining the parameter grid
 param_grid ={
-    'n_estimators' : [100,200, 300],
-    'max_depth' : [None, 10, 20, 30],
-    'min_samples_split' : [2, 5, 10],
-    'min_samples_leaf' : [1, 2, 4],
+    'n_estimators' : [100,200, 300, 400, 500],
+    'max_depth' : [None, 10, 20, 30, 40],
+    'min_samples_split' : [2, 5, 10, 15],
+    'min_samples_leaf' : [1, 2, 4, 6],
 }
 
 #Initialize Grid Search
